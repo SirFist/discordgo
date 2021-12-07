@@ -1666,12 +1666,24 @@ func (s *Session) ChannelMessageEditComplex(m *MessageEdit) (st *Message, err er
 			embed.Type = "rich"
 		}
 	}
-	response, err := s.RequestWithBucketID("PATCH", EndpointChannelMessage(m.Channel, m.ID), m, EndpointChannelMessage(m.Channel, ""))
-	if err != nil {
-		return
-	}
 
-	err = unmarshal(response, &st)
+	uri := EndpointChannelMessage(m.Channel, m.ID)
+	if len(m.Files) > 0 {
+		contentType, body, err := MultipartBodyWithJSON(m, m.Files)
+		if err != nil {
+			return nil, err
+		}
+		_, err = s.request("PATCH", uri, contentType, body, uri, 0)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		response, err := s.RequestWithBucketID("PATCH", EndpointChannelMessage(m.Channel, m.ID), m, EndpointChannelMessage(m.Channel, ""))
+		if err != nil {
+			return nil, err
+		}
+		_ = unmarshal(response, &st)
+	}
 	return
 }
 

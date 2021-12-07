@@ -129,6 +129,9 @@ type Message struct {
 	// This is a combination of bit masks; the presence of a certain permission can
 	// be checked by performing a bitwise AND between this int and the flag.
 	Flags MessageFlags `json:"flags"`
+
+	// Stickers contains all data on stickers included with a message
+	Stickers []*Sticker `json:"sticker_items,omitempty"`
 }
 
 // UnmarshalJSON is a helper function to unmarshal the Message.
@@ -181,6 +184,20 @@ const (
 	MessageFlagsUrgent               MessageFlags = 1 << 4
 )
 
+// Sticker contains details of the stickers sent with a message
+type Sticker struct {
+	ID          string  `json:"string"`
+	PackID      string  `json:"pack_id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Tags        *string `json:"tags,omitempty"`
+	FormatType  int     `json:"format_type"`
+	Available   bool    `json:"available"`
+	GuildID     string  `json:"guild_id"`
+	Author      *User   `json:"user"`
+	SortValue   int     `json:"sort_value"`
+}
+
 // File stores info about files you e.g. send in messages.
 type File struct {
 	Name        string
@@ -218,6 +235,9 @@ type MessageEdit struct {
 
 	// TODO: Remove this when compatibility is not required.
 	Embed *MessageEmbed `json:"-"`
+
+	Files       []*File              `json:"-"`
+	Attachments []*MessageAttachment `json:"attachments"`
 }
 
 // NewMessageEdit returns a MessageEdit struct, initialized
