@@ -51,6 +51,7 @@ func (umc *unmarshalableMessageComponent) UnmarshalJSON(src []byte) error {
 	return json.Unmarshal(src, umc.MessageComponent)
 }
 
+// MessageComponentFromJSON is a helper function for unmarshaling message components
 func MessageComponentFromJSON(b []byte) (MessageComponent, error) {
 	var u unmarshalableMessageComponent
 	err := u.UnmarshalJSON(b)
@@ -174,11 +175,12 @@ type SelectMenu struct {
 	// The text which will be shown in the menu if there's no default options or all options was deselected and component was closed.
 	Placeholder string `json:"placeholder"`
 	// This value determines the minimal amount of selected items in the menu.
-	MinValues int `json:"min_values,omitempty"`
+	MinValues *int `json:"min_values,omitempty"`
 	// This value determines the maximal amount of selected items in the menu.
 	// If MaxValues or MinValues are greater than one then the user can select multiple items in the component.
 	MaxValues int                `json:"max_values,omitempty"`
 	Options   []SelectMenuOption `json:"options"`
+	Disabled  bool               `json:"disabled"`
 }
 
 // Type is a method to get the type of a component.
@@ -201,14 +203,14 @@ func (m SelectMenu) MarshalJSON() ([]byte, error) {
 
 // TextInput represents text input component.
 type TextInput struct {
-	CustomID    string             `json:"custom_id,omitempty"`
-	Label       string             `json:"label"`
-	Style       TextInputStyleType `json:"style"`
-	Placeholder string             `json:"placeholder,omitempty"`
-	Value       string             `json:"value,omitempty"`
-	Required    bool               `json:"required"`
-	MinLength   int                `json:"min_length"`
-	MaxLength   int                `json:"max_length,omitempty"`
+	CustomID    string         `json:"custom_id"`
+	Label       string         `json:"label"`
+	Style       TextInputStyle `json:"style"`
+	Placeholder string         `json:"placeholder,omitempty"`
+	Value       string         `json:"value,omitempty"`
+	Required    bool           `json:"required"`
+	MinLength   int            `json:"min_length,omitempty"`
+	MaxLength   int            `json:"max_length,omitempty"`
 }
 
 // Type is a method to get the type of a component.
@@ -229,11 +231,11 @@ func (m TextInput) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// TextInputStyleType is style of text in TextInput component.
-type TextInputStyleType uint
+// TextInputStyle is style of text in TextInput component.
+type TextInputStyle uint
 
 // Text styles
 const (
-	TextInputShort     TextInputStyleType = 1
-	TextInputParagraph TextInputStyleType = 2
+	TextInputShort     TextInputStyle = 1
+	TextInputParagraph TextInputStyle = 2
 )
