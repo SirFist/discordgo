@@ -215,20 +215,6 @@ const (
 	MessageFlagsFailedToMentionSomeRolesInThread MessageFlags = 1 << 8
 )
 
-// Sticker contains details of the stickers sent with a message
-type Sticker struct {
-	ID          string  `json:"string"`
-	PackID      string  `json:"pack_id"`
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Tags        *string `json:"tags,omitempty"`
-	FormatType  int     `json:"format_type"`
-	Available   bool    `json:"available"`
-	GuildID     string  `json:"guild_id"`
-	Author      *User   `json:"user"`
-	SortValue   int     `json:"sort_value"`
-}
-
 // File stores info about files you e.g. send in messages.
 type File struct {
 	Name        string
