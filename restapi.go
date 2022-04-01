@@ -142,7 +142,7 @@ func (s *Session) RequestWithLockedBucket(method, urlStr, contentType string, b 
 	}
 	defer func() {
 		err2 := resp.Body.Close()
-		if err2 != nil {
+		if s.Debug && err2 != nil {
 			log.Println("error closing resp body")
 		}
 	}()
@@ -472,6 +472,19 @@ func (s *Session) Guild(guildID string) (st *Guild, err error) {
 	return
 }
 
+// GuildWithCounts returns a Guild structure of a specific Guild with approximate member and presence counts.
+// guildID    : The ID of a Guild
+func (s *Session) GuildWithCounts(guildID string) (st *Guild, err error) {
+
+	body, err := s.RequestWithBucketID("GET", EndpointGuild(guildID)+"?with_counts=true", nil, EndpointGuild(guildID))
+	if err != nil {
+		return
+	}
+
+	err = unmarshal(body, &st)
+	return
+}
+
 // GuildPreview returns a GuildPreview structure of a specific public Guild.
 // guildID   : The ID of a Guild
 func (s *Session) GuildPreview(guildID string) (st *GuildPreview, err error) {
@@ -515,7 +528,7 @@ func (s *Session) GuildEdit(guildID string, g GuildParams) (st *Guild, err error
 		}
 	}
 
-	//Bounds checking for regions
+	// Bounds checking for regions
 	if g.Region != "" {
 		isValid := false
 		regions, _ := s.VoiceRegions()
@@ -564,12 +577,30 @@ func (s *Session) GuildLeave(guildID string) (err error) {
 	return
 }
 
-// GuildBans returns an array of GuildBan structures for all bans of a
-// given guild.
-// guildID   : The ID of a Guild.
-func (s *Session) GuildBans(guildID string) (st []*GuildBan, err error) {
+// GuildBans returns an array of GuildBan structures for bans in the given guild.
+//  guildID   : The ID of a Guild
+//  limit     : Max number of bans to return (max 1000)
+//  beforeID  : If not empty all returned users will be after the given id
+//  afterID   : If not empty all returned users will be before the given id
+func (s *Session) GuildBans(guildID string, limit int, beforeID, afterID string) (st []*GuildBan, err error) {
+	uri := EndpointGuildBans(guildID)
 
-	body, err := s.RequestWithBucketID("GET", EndpointGuildBans(guildID), nil, EndpointGuildBans(guildID))
+	v := url.Values{}
+	if limit != 0 {
+		v.Set("limit", strconv.Itoa(limit))
+	}
+	if beforeID != "" {
+		v.Set("before", beforeID)
+	}
+	if afterID != "" {
+		v.Set("after", afterID)
+	}
+
+	if len(v) > 0 {
+		uri += "?" + v.Encode()
+	}
+
+	body, err := s.RequestWithBucketID("GET", uri, nil, EndpointGuildBans(guildID))
 	if err != nil {
 		return
 	}
