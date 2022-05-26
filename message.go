@@ -199,7 +199,9 @@ const (
 	MessageFlagsCrossPosted MessageFlags = 1 << 0
 	// MessageFlagsIsCrossPosted this message originated from a message in another channel (via Channel Following).
 	MessageFlagsIsCrossPosted MessageFlags = 1 << 1
-	// MessageFlagsSupressEmbeds do not include any embeds when serializing this message.
+	// MessageFlagsSuppressEmbeds do not include any embeds when serializing this message.
+	MessageFlagsSuppressEmbeds MessageFlags = 1 << 2
+	// TODO: deprecated, remove when compatibility is not needed
 	MessageFlagsSupressEmbeds MessageFlags = 1 << 2
 	// MessageFlagsSourceMessageDeleted the source message for this crosspost has been deleted (via Channel Following).
 	MessageFlagsSourceMessageDeleted MessageFlags = 1 << 3
@@ -246,6 +248,7 @@ type MessageEdit struct {
 	Components      []MessageComponent      `json:"components"`
 	Embeds          []*MessageEmbed         `json:"embeds"`
 	AllowedMentions *MessageAllowedMentions `json:"allowed_mentions,omitempty"`
+	Flags           MessageFlags            `json:"flags,omitempty"`
 
 	ID      string
 	Channel string
@@ -321,6 +324,9 @@ type MessageAllowedMentions struct {
 	// A list of user IDs to allow. This cannot be used when specifying
 	// AllowedMentionTypeUsers in the Parse slice.
 	Users []string `json:"users,omitempty"`
+
+	// For replies, whether to mention the author of the message being replied to
+	RepliedUser bool `json:"replied_user"`
 }
 
 // A MessageAttachment stores data for message attachments.
@@ -345,7 +351,7 @@ type MessageEmbedFooter struct {
 
 // MessageEmbedImage is a part of a MessageEmbed struct.
 type MessageEmbedImage struct {
-	URL      string `json:"url,omitempty"`
+	URL      string `json:"url"`
 	ProxyURL string `json:"proxy_url,omitempty"`
 	Width    int    `json:"width,omitempty"`
 	Height   int    `json:"height,omitempty"`
@@ -353,7 +359,7 @@ type MessageEmbedImage struct {
 
 // MessageEmbedThumbnail is a part of a MessageEmbed struct.
 type MessageEmbedThumbnail struct {
-	URL      string `json:"url,omitempty"`
+	URL      string `json:"url"`
 	ProxyURL string `json:"proxy_url,omitempty"`
 	Width    int    `json:"width,omitempty"`
 	Height   int    `json:"height,omitempty"`
@@ -375,7 +381,7 @@ type MessageEmbedProvider struct {
 // MessageEmbedAuthor is a part of a MessageEmbed struct.
 type MessageEmbedAuthor struct {
 	URL          string `json:"url,omitempty"`
-	Name         string `json:"name,omitempty"`
+	Name         string `json:"name"`
 	IconURL      string `json:"icon_url,omitempty"`
 	ProxyIconURL string `json:"proxy_icon_url,omitempty"`
 }

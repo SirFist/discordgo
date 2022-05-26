@@ -43,6 +43,9 @@ type Session struct {
 	// Should the session reconnect the websocket on errors.
 	ShouldReconnectOnError bool
 
+	// Should the session retry requests when rate limited.
+	ShouldRetryOnRateLimit bool
+
 	// Identify is sent during initial handshake with the discord gateway.
 	// https://discord.com/developers/docs/topics/gateway#identify
 	Identify Identify
@@ -260,6 +263,7 @@ const (
 	ChannelTypeGuildNewsThread    ChannelType = 10
 	ChannelTypeGuildPublicThread  ChannelType = 11
 	ChannelTypeGuildPrivateThread ChannelType = 12
+	ChannelTypeGuildStageVoice    ChannelType = 13
 )
 
 // A Channel holds all data related to an individual Discord channel.
@@ -360,7 +364,7 @@ type ChannelEdit struct {
 	UserLimit            int                    `json:"user_limit,omitempty"`
 	PermissionOverwrites []*PermissionOverwrite `json:"permission_overwrites,omitempty"`
 	ParentID             string                 `json:"parent_id,omitempty"`
-	RateLimitPerUser     int                    `json:"rate_limit_per_user,omitempty"`
+	RateLimitPerUser     *int                   `json:"rate_limit_per_user,omitempty"`
 
 	// NOTE: threads only
 
@@ -552,6 +556,17 @@ const (
 	ExplicitContentFilterAllMembers          ExplicitContentFilterLevel = 2
 )
 
+// GuildNSFWLevel type definition
+type GuildNSFWLevel int
+
+// Constants for GuildNSFWLevel levels from 0 to 3 inclusive
+const (
+	GuildNSFWLevelDefault       GuildNSFWLevel = 0
+	GuildNSFWLevelExplicit      GuildNSFWLevel = 1
+	GuildNSFWLevelSafe          GuildNSFWLevel = 2
+	GuildNSFWLevelAgeRestricted GuildNSFWLevel = 3
+)
+
 // MfaLevel type definition
 type MfaLevel int
 
@@ -675,6 +690,9 @@ type Guild struct {
 	// The explicit content filter level
 	ExplicitContentFilter ExplicitContentFilterLevel `json:"explicit_content_filter"`
 
+	// The NSFW Level of the guild
+	NSFWLevel GuildNSFWLevel `json:"nsfw_level"`
+
 	// The list of enabled guild features
 	Features []string `json:"features"`
 
@@ -731,6 +749,9 @@ type Guild struct {
 
 	// Permissions of our user
 	Permissions int64 `json:"permissions,string"`
+
+	// Stage instances in the guild
+	StageInstances []*StageInstance `json:"stage_instances"`
 }
 
 // A GuildPreview holds data related to a specific public Discord Guild, even if the user is not in the guild.
@@ -857,7 +878,7 @@ func (p GuildScheduledEventParams) MarshalJSON() ([]byte, error) {
 	type guildScheduledEventParams GuildScheduledEventParams
 
 	if p.EntityType == GuildScheduledEventEntityTypeExternal && p.ChannelID == "" {
-		return json.Marshal(struct {
+		return Marshal(struct {
 			guildScheduledEventParams
 			ChannelID json.RawMessage `json:"channel_id"`
 		}{
@@ -866,7 +887,7 @@ func (p GuildScheduledEventParams) MarshalJSON() ([]byte, error) {
 		})
 	}
 
-	return json.Marshal(guildScheduledEventParams(p))
+	return Marshal(guildScheduledEventParams(p))
 }
 
 // GuildScheduledEventEntityMetadata holds additional metadata for guild scheduled event.
@@ -1108,7 +1129,7 @@ func (t *TimeStamps) UnmarshalJSON(b []byte) error {
 		End   float64 `json:"end,omitempty"`
 		Start float64 `json:"start,omitempty"`
 	}{}
-	err := json.Unmarshal(b, &temp)
+	err := Unmarshal(b, &temp)
 	if err != nil {
 		return err
 	}
@@ -1246,7 +1267,7 @@ func (t *TooManyRequests) UnmarshalJSON(b []byte) error {
 		Message    string  `json:"message"`
 		RetryAfter float64 `json:"retry_after"`
 	}{}
-	err := json.Unmarshal(b, &u)
+	err := Unmarshal(b, &u)
 	if err != nil {
 		return err
 	}
@@ -1553,6 +1574,8 @@ const (
 	AuditLogActionThreadCreate AuditLogAction = 110
 	AuditLogActionThreadUpdate AuditLogAction = 111
 	AuditLogActionThreadDelete AuditLogAction = 112
+
+	AuditLogActionApplicationCommandPermissionUpdate AuditLogAction = 121
 )
 
 // A UserGuildSettingsChannelOverride stores data for a channel override for a users guild settings.
@@ -1579,6 +1602,15 @@ type UserGuildSettingsEdit struct {
 	MobilePush           bool                                         `json:"mobile_push"`
 	MessageNotifications int                                          `json:"message_notifications"`
 	ChannelOverrides     map[string]*UserGuildSettingsChannelOverride `json:"channel_overrides"`
+}
+
+// GuildMemberParams stores data needed to update a member
+// https://discord.com/developers/docs/resources/guild#modify-guild-member
+type GuildMemberParams struct {
+	// Value to set user's nickname to
+	Nick string `json:"nick,omitempty"`
+	// Array of role ids the member is assigned
+	Roles *[]string `json:"roles,omitempty"`
 }
 
 // An APIErrorMessage is an api error message returned from discord
@@ -1657,7 +1689,7 @@ func (activity *Activity) UnmarshalJSON(b []byte) error {
 		Instance      bool         `json:"instance,omitempty"`
 		Flags         int          `json:"flags,omitempty"`
 	}{}
-	err := json.Unmarshal(b, &temp)
+	err := Unmarshal(b, &temp)
 	if err != nil {
 		return err
 	}
@@ -1728,6 +1760,49 @@ type IdentifyProperties struct {
 	Referer         string `json:"$referer"`
 	ReferringDomain string `json:"$referring_domain"`
 }
+
+// StageInstance holds information about a live stage.
+// https://discord.com/developers/docs/resources/stage-instance#stage-instance-resource
+type StageInstance struct {
+	// The id of this Stage instance
+	ID string `json:"id"`
+	// The guild id of the associated Stage channel
+	GuildID string `json:"guild_id"`
+	// The id of the associated Stage channel
+	ChannelID string `json:"channel_id"`
+	// The topic of the Stage instance (1-120 characters)
+	Topic string `json:"topic"`
+	// The privacy level of the Stage instance
+	// https://discord.com/developers/docs/resources/stage-instance#stage-instance-object-privacy-level
+	PrivacyLevel StageInstancePrivacyLevel `json:"privacy_level"`
+	// Whether or not Stage Discovery is disabled (deprecated)
+	DiscoverableDisabled bool `json:"discoverable_disabled"`
+	// The id of the scheduled event for this Stage instance
+	GuildScheduledEventID string `json:"guild_scheduled_event_id"`
+}
+
+// StageInstanceParams represents the parameters needed to create or edit a stage instance
+type StageInstanceParams struct {
+	// ChannelID represents the id of the Stage channel
+	ChannelID string `json:"channel_id,omitempty"`
+	// Topic of the Stage instance (1-120 characters)
+	Topic string `json:"topic,omitempty"`
+	// PrivacyLevel of the Stage instance (default GUILD_ONLY)
+	PrivacyLevel StageInstancePrivacyLevel `json:"privacy_level,omitempty"`
+	// SendStartNotification will notify @everyone that a Stage instance has started
+	SendStartNotification bool `json:"send_start_notification,omitempty"`
+}
+
+// StageInstancePrivacyLevel represents the privacy level of a Stage instance
+// https://discord.com/developers/docs/resources/stage-instance#stage-instance-object-privacy-level
+type StageInstancePrivacyLevel int
+
+const (
+	// StageInstancePrivacyLevelPublic The Stage instance is visible publicly. (deprecated)
+	StageInstancePrivacyLevelPublic StageInstancePrivacyLevel = 1
+	// StageInstancePrivacyLevelGuildOnly The Stage instance is visible to only guild members.
+	StageInstancePrivacyLevelGuildOnly StageInstancePrivacyLevel = 2
+)
 
 // Constants for the different bit offsets of text channel permissions
 const (
