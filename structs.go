@@ -95,6 +95,9 @@ type Session struct {
 	// The http client used for REST requests
 	Client *http.Client
 
+	// The dialer used for WebSocket connection
+	Dialer *websocket.Dialer
+
 	// The user agent used for REST APIs
 	UserAgent string
 
@@ -197,23 +200,8 @@ type IntegrationAccount struct {
 
 // A VoiceRegion stores data for a specific voice region server.
 type VoiceRegion struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Hostname string `json:"sample_hostname"`
-	Port     int    `json:"sample_port"`
-}
-
-// A VoiceICE stores data for voice ICE servers.
-type VoiceICE struct {
-	TTL     string       `json:"ttl"`
-	Servers []*ICEServer `json:"servers"`
-}
-
-// A ICEServer stores data for a specific voice ICE server.
-type ICEServer struct {
-	URL        string `json:"url"`
-	Username   string `json:"username"`
-	Credential string `json:"credential"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // InviteTargetType indicates the type of target of an invite
@@ -491,6 +479,17 @@ func (e *Emoji) APIName() string {
 	return e.ID
 }
 
+// EmojiParams represents parameters needed to create or update an Emoji.
+type EmojiParams struct {
+	// Name of the emoji
+	Name string `json:"name,omitempty"`
+	// A base64 encoded emoji image, has to be smaller than 256KB.
+	// NOTE: can be only set on creation.
+	Image string `json:"image,omitempty"`
+	// Roles for which this emoji will be available.
+	Roles []string `json:"roles,omitempty"`
+}
+
 // StickerFormat is the file format of the Sticker.
 type StickerFormat int
 
@@ -696,7 +695,7 @@ type Guild struct {
 	NSFWLevel GuildNSFWLevel `json:"nsfw_level"`
 
 	// The list of enabled guild features
-	Features []string `json:"features"`
+	Features []GuildFeature `json:"features"`
 
 	// Required MFA level for the guild
 	MfaLevel MfaLevel `json:"mfa_level"`
@@ -984,6 +983,14 @@ type GuildTemplate struct {
 	IsDirty bool `json:"is_dirty"`
 }
 
+// GuildTemplateParams stores the data needed to create or update a GuildTemplate.
+type GuildTemplateParams struct {
+	// The name of the template (1-100 characters)
+	Name string `json:"name,omitempty"`
+	// The description of the template (0-120 characters)
+	Description string `json:"description,omitempty"`
+}
+
 // MessageNotifications is the notification level for a guild
 // https://discord.com/developers/docs/resources/guild#guild-object-default-message-notification-level
 type MessageNotifications int
@@ -1027,12 +1034,41 @@ func (g *Guild) BannerURL() string {
 
 // A UserGuild holds a brief version of a Guild
 type UserGuild struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Icon        string `json:"icon"`
-	Owner       bool   `json:"owner"`
-	Permissions int64  `json:"permissions,string"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Icon        string         `json:"icon"`
+	Owner       bool           `json:"owner"`
+	Permissions int64          `json:"permissions,string"`
+	Features    []GuildFeature `json:"features"`
 }
+
+// GuildFeature indicates the presence of a feature in a guild
+type GuildFeature string
+
+// Constants for GuildFeature
+const (
+	GuildFeatureAnimatedBanner                GuildFeature = "ANIMATED_BANNER"
+	GuildFeatureAnimatedIcon                  GuildFeature = "ANIMATED_ICON"
+	GuildFeatureAutoModeration                GuildFeature = "AUTO_MODERATION"
+	GuildFeatureBanner                        GuildFeature = "BANNER"
+	GuildFeatureCommunity                     GuildFeature = "COMMUNITY"
+	GuildFeatureDiscoverable                  GuildFeature = "DISCOVERABLE"
+	GuildFeatureFeaturable                    GuildFeature = "FEATURABLE"
+	GuildFeatureInviteSplash                  GuildFeature = "INVITE_SPLASH"
+	GuildFeatureMemberVerificationGateEnabled GuildFeature = "MEMBER_VERIFICATION_GATE_ENABLED"
+	GuildFeatureMonetizationEnabled           GuildFeature = "MONETIZATION_ENABLED"
+	GuildFeatureMoreStickers                  GuildFeature = "MORE_STICKERS"
+	GuildFeatureNews                          GuildFeature = "NEWS"
+	GuildFeaturePartnered                     GuildFeature = "PARTNERED"
+	GuildFeaturePreviewEnabled                GuildFeature = "PREVIEW_ENABLED"
+	GuildFeaturePrivateThreads                GuildFeature = "PRIVATE_THREADS"
+	GuildFeatureRoleIcons                     GuildFeature = "ROLE_ICONS"
+	GuildFeatureTicketedEventsEnabled         GuildFeature = "TICKETED_EVENTS_ENABLED"
+	GuildFeatureVanityURL                     GuildFeature = "VANITY_URL"
+	GuildFeatureVerified                      GuildFeature = "VERIFIED"
+	GuildFeatureVipRegions                    GuildFeature = "VIP_REGIONS"
+	GuildFeatureWelcomeScreenEnabled          GuildFeature = "WELCOME_SCREEN_ENABLED"
+)
 
 // A GuildParams stores all the data needed to update discord guild settings
 type GuildParams struct {
@@ -1081,6 +1117,20 @@ type Role struct {
 // Mention returns a string which mentions the role
 func (r *Role) Mention() string {
 	return fmt.Sprintf("<@&%s>", r.ID)
+}
+
+// RoleParams represents the parameters needed to create or update a Role
+type RoleParams struct {
+	// The role's name
+	Name string `json:"name,omitempty"`
+	// The color the role should have (as a decimal, not hex)
+	Color *int `json:"color,omitempty"`
+	// Whether to display the role's users separately
+	Hoist *bool `json:"hoist,omitempty"`
+	// The overall permissions number of the role
+	Permissions *int64 `json:"permissions,omitempty,string"`
+	// Whether this role is mentionable
+	Mentionable *bool `json:"mentionable,omitempty"`
 }
 
 // Roles are a collection of Role
@@ -1212,25 +1262,6 @@ func (m *Member) AvatarURL(size string) string {
 
 }
 
-// A Settings stores data for a specific users Discord client settings.
-type Settings struct {
-	RenderEmbeds           bool               `json:"render_embeds"`
-	InlineEmbedMedia       bool               `json:"inline_embed_media"`
-	InlineAttachmentMedia  bool               `json:"inline_attachment_media"`
-	EnableTTSCommand       bool               `json:"enable_tts_command"`
-	MessageDisplayCompact  bool               `json:"message_display_compact"`
-	ShowCurrentGame        bool               `json:"show_current_game"`
-	ConvertEmoticons       bool               `json:"convert_emoticons"`
-	Locale                 string             `json:"locale"`
-	Theme                  string             `json:"theme"`
-	GuildPositions         []string           `json:"guild_positions"`
-	RestrictedGuilds       []string           `json:"restricted_guilds"`
-	FriendSourceFlags      *FriendSourceFlags `json:"friend_source_flags"`
-	Status                 Status             `json:"status"`
-	DetectPlatformAccounts bool               `json:"detect_platform_accounts"`
-	DeveloperMode          bool               `json:"developer_mode"`
-}
-
 // Status type definition
 type Status string
 
@@ -1242,20 +1273,6 @@ const (
 	StatusInvisible    Status = "invisible"
 	StatusOffline      Status = "offline"
 )
-
-// FriendSourceFlags stores ... TODO :)
-type FriendSourceFlags struct {
-	All           bool `json:"all"`
-	MutualGuilds  bool `json:"mutual_guilds"`
-	MutualFriends bool `json:"mutual_friends"`
-}
-
-// A Relationship between the logged in user and Relationship.User
-type Relationship struct {
-	User *User  `json:"user"`
-	Type int    `json:"type"` // 1 = friend, 2 = blocked, 3 = incoming friend req, 4 = sent friend req
-	ID   string `json:"id"`
-}
 
 // A TooManyRequests struct holds information received from Discord
 // when receiving a HTTP 429 response.
@@ -1290,11 +1307,6 @@ type ReadState struct {
 	MentionCount  int    `json:"mention_count"`
 	LastMessageID string `json:"last_message_id"`
 	ID            string `json:"id"`
-}
-
-// An Ack is used to ack messages
-type Ack struct {
-	Token string `json:"token"`
 }
 
 // A GuildRole stores data for guild roles.
@@ -1393,8 +1405,8 @@ type AutoModerationAction struct {
 
 // A GuildEmbed stores data for a guild embed.
 type GuildEmbed struct {
-	Enabled   bool   `json:"enabled"`
-	ChannelID string `json:"channel_id"`
+	Enabled   *bool  `json:"enabled,omitempty"`
+	ChannelID string `json:"channel_id,omitempty"`
 }
 
 // A GuildAuditLog stores data for a guild audit log.
@@ -1666,39 +1678,75 @@ const (
 	AuditLogActionApplicationCommandPermissionUpdate AuditLogAction = 121
 )
 
-// A UserGuildSettingsChannelOverride stores data for a channel override for a users guild settings.
-type UserGuildSettingsChannelOverride struct {
-	Muted                bool   `json:"muted"`
-	MessageNotifications int    `json:"message_notifications"`
-	ChannelID            string `json:"channel_id"`
-}
-
-// A UserGuildSettings stores data for a users guild settings.
-type UserGuildSettings struct {
-	SupressEveryone      bool                                `json:"suppress_everyone"`
-	Muted                bool                                `json:"muted"`
-	MobilePush           bool                                `json:"mobile_push"`
-	MessageNotifications int                                 `json:"message_notifications"`
-	GuildID              string                              `json:"guild_id"`
-	ChannelOverrides     []*UserGuildSettingsChannelOverride `json:"channel_overrides"`
-}
-
-// A UserGuildSettingsEdit stores data for editing UserGuildSettings
-type UserGuildSettingsEdit struct {
-	SupressEveryone      bool                                         `json:"suppress_everyone"`
-	Muted                bool                                         `json:"muted"`
-	MobilePush           bool                                         `json:"mobile_push"`
-	MessageNotifications int                                          `json:"message_notifications"`
-	ChannelOverrides     map[string]*UserGuildSettingsChannelOverride `json:"channel_overrides"`
-}
-
 // GuildMemberParams stores data needed to update a member
 // https://discord.com/developers/docs/resources/guild#modify-guild-member
 type GuildMemberParams struct {
-	// Value to set user's nickname to
+	// Value to set user's nickname to.
 	Nick string `json:"nick,omitempty"`
-	// Array of role ids the member is assigned
+	// Array of role ids the member is assigned.
 	Roles *[]string `json:"roles,omitempty"`
+	// ID of channel to move user to (if they are connected to voice).
+	// Set to "" to remove user from a voice channel.
+	ChannelID *string `json:"channel_id,omitempty"`
+	// Whether the user is muted in voice channels.
+	Mute *bool `json:"mute,omitempty"`
+	// Whether the user is deafened in voice channels.
+	Deaf *bool `json:"deaf,omitempty"`
+	// When the user's timeout will expire and the user will be able
+	// to communicate in the guild again (up to 28 days in the future).
+	// Set to time.Time{} to remove timeout.
+	CommunicationDisabledUntil *time.Time `json:"communication_disabled_until,omitempty"`
+}
+
+// MarshalJSON is a helper function to marshal GuildMemberParams.
+func (p GuildMemberParams) MarshalJSON() (res []byte, err error) {
+	type guildMemberParams GuildMemberParams
+	v := struct {
+		guildMemberParams
+		ChannelID                  json.RawMessage `json:"channel_id,omitempty"`
+		CommunicationDisabledUntil json.RawMessage `json:"communication_disabled_until,omitempty"`
+	}{guildMemberParams: guildMemberParams(p)}
+
+	if p.ChannelID != nil {
+		if *p.ChannelID == "" {
+			v.ChannelID = json.RawMessage(`null`)
+		} else {
+			res, err = json.Marshal(p.ChannelID)
+			if err != nil {
+				return
+			}
+			v.ChannelID = res
+		}
+	}
+
+	if p.CommunicationDisabledUntil != nil {
+		if p.CommunicationDisabledUntil.IsZero() {
+			v.CommunicationDisabledUntil = json.RawMessage(`null`)
+		} else {
+			res, err = json.Marshal(p.CommunicationDisabledUntil)
+			if err != nil {
+				return
+			}
+			v.CommunicationDisabledUntil = res
+		}
+	}
+
+	return json.Marshal(v)
+}
+
+// GuildMemberAddParams stores data needed to add a user to a guild.
+// NOTE: All fields are optional, except AccessToken.
+type GuildMemberAddParams struct {
+	// Valid access_token for the user.
+	AccessToken string `json:"access_token"`
+	// Value to set users nickname to.
+	Nick string `json:"nick,omitempty"`
+	// A list of role ID's to set on the member.
+	Roles []string `json:"roles,omitempty"`
+	// Whether the user is muted.
+	Mute bool `json:"mute,omitempty"`
+	// Whether the user is deafened.
+	Deaf bool `json:"deaf,omitempty"`
 }
 
 // An APIErrorMessage is an api error message returned from discord
