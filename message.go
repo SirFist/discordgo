@@ -249,19 +249,16 @@ type MessageEdit struct {
 	Embeds          []*MessageEmbed         `json:"embeds"`
 	AllowedMentions *MessageAllowedMentions `json:"allowed_mentions,omitempty"`
 	Flags           MessageFlags            `json:"flags,omitempty"`
-	// Files to append to the message
-	Files []*File `json:"-"`
-	// Overwrite existing attachments
-	Attachments *[]*MessageAttachment `json:"attachments,omitempty"`
-
-	ID      string
-	Channel string
+	ID              string
+	Channel         string
 
 	// TODO: Remove this when compatibility is not required.
 	Embed *MessageEmbed `json:"-"`
 
-	Files       []*File              `json:"-"`
-	Attachments []*MessageAttachment `json:"attachments"`
+	// Files to append to the message
+	Files []*File `json:"-"`
+	// Overwrite existing attachments
+	Attachments *[]*MessageAttachment `json:"attachments,omitempty"`
 }
 
 // NewMessageEdit returns a MessageEdit struct, initialized
