@@ -672,14 +672,9 @@ func (s *Session) GuildEdit(guildID string, g *GuildParams, options ...RequestOp
 
 // GuildDelete deletes a Guild.
 // guildID   : The ID of a Guild
-func (s *Session) GuildDelete(guildID string, options ...RequestOption) (st *Guild, err error) {
+func (s *Session) GuildDelete(guildID string, options ...RequestOption) (err error) {
 
-	body, err := s.RequestWithBucketID("DELETE", EndpointGuild(guildID), nil, EndpointGuild(guildID), options...)
-	if err != nil {
-		return
-	}
-
-	err = unmarshal(body, &st)
+	_, err = s.RequestWithBucketID("DELETE", EndpointGuild(guildID), nil, EndpointGuild(guildID), options...)
 	return
 }
 
@@ -1700,13 +1695,19 @@ func (s *Session) ChannelMessageSendComplex(channelID string, data *MessageSend,
 		}
 	}
 
+	if data.StickerIDs != nil {
+		if len(data.StickerIDs) > 3 {
+			err = fmt.Errorf("cannot send more than 3 stickers")
+			return
+		}
+	}
+
 	var response []byte
 	if len(files) > 0 {
 		contentType, body, encodeErr := MultipartBodyWithJSON(data, files)
 		if encodeErr != nil {
 			return st, encodeErr
 		}
-
 		response, err = s.request("POST", endpoint, contentType, body, endpoint, 0, options...)
 	} else {
 		response, err = s.RequestWithBucketID("POST", endpoint, data, endpoint, options...)
@@ -2297,7 +2298,8 @@ func (s *Session) WebhookEditWithToken(webhookID, token, name, avatar string, op
 		Avatar string `json:"avatar,omitempty"`
 	}{name, avatar}
 
-	body, err := s.RequestWithBucketID("PATCH", EndpointWebhookToken(webhookID, token), data, EndpointWebhookToken("", ""), options...)
+	var body []byte
+	body, err = s.RequestWithBucketID("PATCH", EndpointWebhookToken(webhookID, token), data, EndpointWebhookToken("", ""), options...)
 	if err != nil {
 		return
 	}

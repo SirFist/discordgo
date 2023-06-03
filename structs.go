@@ -1738,14 +1738,17 @@ const (
 // AuditLogOptions optional data for the AuditLog
 // https://discord.com/developers/docs/resources/audit-log#audit-log-entry-object-optional-audit-entry-info
 type AuditLogOptions struct {
-	DeleteMemberDays string               `json:"delete_member_days"`
-	MembersRemoved   string               `json:"members_removed"`
-	ChannelID        string               `json:"channel_id"`
-	MessageID        string               `json:"message_id"`
-	Count            string               `json:"count"`
-	ID               string               `json:"id"`
-	Type             *AuditLogOptionsType `json:"type"`
-	RoleName         string               `json:"role_name"`
+	DeleteMemberDays              string               `json:"delete_member_days"`
+	MembersRemoved                string               `json:"members_removed"`
+	ChannelID                     string               `json:"channel_id"`
+	MessageID                     string               `json:"message_id"`
+	Count                         string               `json:"count"`
+	ID                            string               `json:"id"`
+	Type                          *AuditLogOptionsType `json:"type"`
+	RoleName                      string               `json:"role_name"`
+	ApplicationID                 string               `json:"application_id"`
+	AutoModerationRuleName        string               `json:"auto_moderation_rule_name"`
+	AutoModerationRuleTriggerType string               `json:"auto_moderation_rule_trigger_type"`
 }
 
 // AuditLogOptionsType of the AuditLogOption
@@ -1816,7 +1819,7 @@ const (
 	AuditLogActionStickerDelete AuditLogAction = 92
 
 	AuditLogGuildScheduledEventCreate AuditLogAction = 100
-	AuditLogGuildScheduledEventUpdare AuditLogAction = 101
+	AuditLogGuildScheduledEventUpdate AuditLogAction = 101
 	AuditLogGuildScheduledEventDelete AuditLogAction = 102
 
 	AuditLogActionThreadCreate AuditLogAction = 110
@@ -1824,6 +1827,13 @@ const (
 	AuditLogActionThreadDelete AuditLogAction = 112
 
 	AuditLogActionApplicationCommandPermissionUpdate AuditLogAction = 121
+
+	AuditLogActionAutoModerationRuleCreate                AuditLogAction = 140
+	AuditLogActionAutoModerationRuleUpdate                AuditLogAction = 141
+	AuditLogActionAutoModerationRuleDelete                AuditLogAction = 142
+	AuditLogActionAutoModerationBlockMessage              AuditLogAction = 143
+	AuditLogActionAutoModerationFlagToChannel             AuditLogAction = 144
+	AuditLogActionAutoModerationUserCommunicationDisabled AuditLogAction = 145
 )
 
 // GuildMemberParams stores data needed to update a member
@@ -2351,7 +2361,7 @@ type Intent int
 const (
 	IntentGuilds                      Intent = 1 << 0
 	IntentGuildMembers                Intent = 1 << 1
-	IntentGuildBans                   Intent = 1 << 2
+	IntentGuildModeration             Intent = 1 << 2
 	IntentGuildEmojis                 Intent = 1 << 3
 	IntentGuildIntegrations           Intent = 1 << 4
 	IntentGuildWebhooks               Intent = 1 << 5
@@ -2370,6 +2380,8 @@ const (
 	IntentAutoModerationExecution     Intent = 1 << 21
 
 	// TODO: remove when compatibility is not needed
+
+	IntentGuildBans Intent = IntentGuildModeration
 
 	IntentsGuilds                 Intent = 1 << 0
 	IntentsGuildMembers           Intent = 1 << 1
