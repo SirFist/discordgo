@@ -682,10 +682,10 @@ type voiceChannelJoinOp struct {
 
 // ChannelVoiceJoin joins the session user to a voice channel.
 //
-//    gID     : Guild ID of the channel to join.
-//    cID     : Channel ID of the channel to join.
-//    mute    : If true, you will be set to muted upon joining.
-//    deaf    : If true, you will be set to deafened upon joining.
+//	gID     : Guild ID of the channel to join.
+//	cID     : Channel ID of the channel to join.
+//	mute    : If true, you will be set to muted upon joining.
+//	deaf    : If true, you will be set to deafened upon joining.
 func (s *Session) ChannelVoiceJoin(gID, cID string, mute, deaf bool) (voice *VoiceConnection, err error) {
 
 	s.log(LogInformational, "called")
@@ -729,10 +729,10 @@ func (s *Session) ChannelVoiceJoin(gID, cID string, mute, deaf bool) (voice *Voi
 //
 // This should only be used when the VoiceServerUpdate will be intercepted and used elsewhere.
 //
-//    gID     : Guild ID of the channel to join.
-//    cID     : Channel ID of the channel to join, leave empty to disconnect.
-//    mute    : If true, you will be set to muted upon joining.
-//    deaf    : If true, you will be set to deafened upon joining.
+//	gID     : Guild ID of the channel to join.
+//	cID     : Channel ID of the channel to join, leave empty to disconnect.
+//	mute    : If true, you will be set to muted upon joining.
+//	deaf    : If true, you will be set to deafened upon joining.
 func (s *Session) ChannelVoiceJoinManual(gID, cID string, mute, deaf bool) (err error) {
 
 	s.log(LogInformational, "called")
@@ -940,26 +940,12 @@ func (s *Session) CloseWithCode(closeCode int) (err error) {
 
 	// TODO: Close all active Voice Connections too
 	// this should force stop any reconnecting voice channels too
-
 	if s.wsConn != nil {
-
-		s.log(LogInformational, "sending close frame")
-		// To cleanly close a connection, a client should send a close
-		// frame and wait for the server to close the connection.
-		s.wsMutex.Lock()
-		err := s.wsConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCode, ""))
-		s.wsMutex.Unlock()
-		if err != nil {
-			s.log(LogInformational, "error closing websocket, %s", err)
-		}
-
-		// TODO: Wait for Discord to actually close the connection.
-		time.Sleep(1 * time.Second)
+		err = s.doCloseHandshake(closeCode)
 
 		s.log(LogInformational, "closing gateway websocket")
-		err = s.wsConn.Close()
-		if err != nil {
-			s.log(LogInformational, "error closing websocket, %s", err)
+		if err1 := s.wsConn.Close(); err1 != nil && err == nil {
+			err = err1
 		}
 
 		s.wsConn = nil
@@ -971,4 +957,37 @@ func (s *Session) CloseWithCode(closeCode int) (err error) {
 	s.handleEvent(disconnectEventType, &Disconnect{})
 
 	return
+}
+
+func (s *Session) doCloseHandshake(closeCode int) error {
+	s.log(LogInformational, "sending close frame")
+
+	// To cleanly close a connection, a client should send a close
+	// frame and wait for the server to close the connection.
+	s.wsMutex.Lock()
+	err := s.wsConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(closeCode, ""))
+	s.wsMutex.Unlock()
+	if err != nil {
+		s.log(LogInformational, "error closing websocket, %s", err)
+		return err
+	}
+
+	// Wait for Discord to actually close the connection.
+	// To prevent ping, pong and close handlers from setting the read deadline,
+	// set these handlers to the default.
+	s.wsConn.SetPingHandler(nil)
+	s.wsConn.SetPongHandler(nil)
+	s.wsConn.SetCloseHandler(nil)
+	s.wsConn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	for {
+		if _, _, err = s.wsConn.NextReader(); err != nil {
+			var closeError *websocket.CloseError
+			if !errors.As(err, &closeError) {
+				s.log(LogInformational, "error closing websocket, %s", err)
+				return err
+			}
+			s.log(LogInformational, "received close frame")
+			return nil
+		}
+	}
 }
