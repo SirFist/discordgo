@@ -1507,27 +1507,6 @@ func (m *Member) AvatarURL(size string) string {
 
 }
 
-<<<<<<< HEAD
-// DisplayName returns a member's Display Name, Global Name or UserName in that order depending on presence.
-func (m *Member) DisplayName() string {
-	if m.Nick != "" {
-		return m.Nick
-	} else if m.User.GlobalName != "" {
-		return m.User.GlobalName
-	} else {
-		return m.User.Username
-	}
-=======
-// DisplayName returns the member's guild nickname if they have one,
-// otherwise it returns their discord display name.
-func (m *Member) DisplayName() string {
-	if m.Nick != "" {
-		return m.Nick
-	}
-	return m.User.GlobalName
->>>>>>> afc57886f91a4af3c2ebcc6ac39f1b07138f44ab
-}
-
 // DisplayName returns a member's Display Name, Global Name or UserName in that order depending on presence.
 func (m *Member) DisplayName() string {
 	if m.Nick != "" {
