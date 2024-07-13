@@ -135,10 +135,13 @@ type Message struct {
 	// If the field exists but is null, the referenced message was deleted.
 	ReferencedMessage *Message `json:"referenced_message"`
 
+	// Deprecated, use InteractionMetadata.
 	// Is sent when the message is a response to an Interaction, without an existing message.
 	// This means responses to message component interactions do not include this property,
 	// instead including a MessageReference, as components exist on preexisting messages.
 	Interaction *MessageInteraction `json:"interaction"`
+
+	InteractionMetadata *MessageInteractionMetadata `json:"interaction_metadata"`
 
 	// The flags of the message, which describe extra features of a message.
 	// This is a combination of bit masks; the presence of a certain permission can
@@ -148,8 +151,8 @@ type Message struct {
 	// The thread that was started from this message, includes thread member object
 	Thread *Channel `json:"thread,omitempty"`
 
-	// An array of Sticker objects, if any were sent.
-	StickerItems []*Sticker `json:"sticker_items"`
+	// An array of StickerItem objects, representing sent stickers, if there were any.
+	StickerItems []*StickerItem `json:"sticker_items"`
 }
 
 // UnmarshalJSON is a helper function to unmarshal the Message.
@@ -239,6 +242,7 @@ type MessageSend struct {
 	Reference       *MessageReference       `json:"message_reference,omitempty"`
 	StickerIDs      []string                `json:"sticker_ids"`
 	Flags           MessageFlags            `json:"flags,omitempty"`
+	Poll            *Poll                   `json:"poll,omitempty"`
 
 	// TODO: Remove this when compatibility is not required.
 	File *File `json:"-"`
@@ -251,8 +255,8 @@ type MessageSend struct {
 // is also where you should get the instance from.
 type MessageEdit struct {
 	Content         *string                 `json:"content,omitempty"`
-	Components      []MessageComponent      `json:"components"`
-	Embeds          []*MessageEmbed         `json:"embeds"`
+	Components      *[]MessageComponent     `json:"components,omitempty"`
+	Embeds          *[]*MessageEmbed        `json:"embeds,omitempty"`
 	AllowedMentions *MessageAllowedMentions `json:"allowed_mentions,omitempty"`
 	Flags           MessageFlags            `json:"flags,omitempty"`
 	ID              string
@@ -286,14 +290,14 @@ func (m *MessageEdit) SetContent(str string) *MessageEdit {
 // SetEmbed is a convenience function for setting the embed,
 // so you can chain commands.
 func (m *MessageEdit) SetEmbed(embed *MessageEmbed) *MessageEdit {
-	m.Embeds = []*MessageEmbed{embed}
+	m.Embeds = &[]*MessageEmbed{embed}
 	return m
 }
 
 // SetEmbeds is a convenience function for setting the embeds,
 // so you can chain commands.
 func (m *MessageEdit) SetEmbeds(embeds []*MessageEmbed) *MessageEdit {
-	m.Embeds = embeds
+	m.Embeds = &embeds
 	return m
 }
 
@@ -566,4 +570,25 @@ type MessageInteraction struct {
 
 	// Member is only present when the interaction is from a guild.
 	Member *Member `json:"member"`
+}
+
+// MessageInteractionMetadata contains metadata of an interaction, including relevant user info.
+type MessageInteractionMetadata struct {
+	// ID of the interaction.
+	ID string `json:"id"`
+	// Type of the interaction.
+	Type InteractionType `json:"type"`
+	// User who triggered the interaction.
+	User *User `json:"user"`
+	// IDs for installation context(s) related to an interaction.
+	AuthorizingIntegrationOwners map[ApplicationIntegrationType]string `json:"authorizing_integration_owners"`
+	// ID of the original response message.
+	// NOTE: present only on followup messages.
+	OriginalResponseMessageID string `json:"original_response_message_id,omitempty"`
+	// ID of the message that contained interactive component.
+	// NOTE: present only on message component interactions.
+	InteractedMessageID string `json:"interacted_message_id,omitempty"`
+	// Metadata for interaction that was used to open a modal.
+	// NOTE: present only on modal submit interactions.
+	TriggeringInteractionMetadata *MessageInteractionMetadata `json:"triggering_interaction_metadata,omitempty"`
 }

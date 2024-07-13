@@ -53,6 +53,7 @@ type ChannelCreate struct {
 // ChannelUpdate is the data for a ChannelUpdate event.
 type ChannelUpdate struct {
 	*Channel
+	BeforeUpdate *Channel `json:"-"`
 }
 
 // ChannelDelete is the data for a ChannelDelete event.
@@ -405,4 +406,23 @@ type AutoModerationActionExecution struct {
 // GuildAuditLogEntryCreate is the data for a GuildAuditLogEntryCreate event.
 type GuildAuditLogEntryCreate struct {
 	*AuditLogEntry
+	GuildID string `json:"guild_id"`
+}
+
+// MessagePollVoteAdd is the data for a MessagePollVoteAdd event.
+type MessagePollVoteAdd struct {
+	UserID    string `json:"user_id"`
+	ChannelID string `json:"channel_id"`
+	MessageID string `json:"message_id"`
+	GuildID   string `json:"guild_id,omitempty"`
+	AnswerID  int    `json:"answer_id"`
+}
+
+// MessagePollVoteRemove is the data for a MessagePollVoteRemove event.
+type MessagePollVoteRemove struct {
+	UserID    string `json:"user_id"`
+	ChannelID string `json:"channel_id"`
+	MessageID string `json:"message_id"`
+	GuildID   string `json:"guild_id,omitempty"`
+	AnswerID  int    `json:"answer_id"`
 }

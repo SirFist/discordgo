@@ -136,26 +136,49 @@ type Session struct {
 	wsMutex sync.Mutex
 }
 
+// ApplicationIntegrationType dictates where application can be installed and its available interaction contexts.
+type ApplicationIntegrationType uint
+
+const (
+	// ApplicationIntegrationGuildInstall indicates that app is installable to guilds.
+	ApplicationIntegrationGuildInstall ApplicationIntegrationType = 0
+	// ApplicationIntegrationUserInstall indicates that app is installable to users.
+	ApplicationIntegrationUserInstall ApplicationIntegrationType = 1
+)
+
+// ApplicationInstallParams represents application's installation parameters
+// for default in-app oauth2 authorization link.
+type ApplicationInstallParams struct {
+	Scopes      []string `json:"scopes"`
+	Permissions int64    `json:"permissions,string"`
+}
+
+// ApplicationIntegrationTypeConfig represents application's configuration for a particular integration type.
+type ApplicationIntegrationTypeConfig struct {
+	OAuth2InstallParams *ApplicationInstallParams `json:"oauth2_install_params,omitempty"`
+}
+
 // Application stores values for a Discord Application
 type Application struct {
-	ID                  string   `json:"id,omitempty"`
-	Name                string   `json:"name"`
-	Icon                string   `json:"icon,omitempty"`
-	Description         string   `json:"description,omitempty"`
-	RPCOrigins          []string `json:"rpc_origins,omitempty"`
-	BotPublic           bool     `json:"bot_public,omitempty"`
-	BotRequireCodeGrant bool     `json:"bot_require_code_grant,omitempty"`
-	TermsOfServiceURL   string   `json:"terms_of_service_url"`
-	PrivacyProxyURL     string   `json:"privacy_policy_url"`
-	Owner               *User    `json:"owner"`
-	Summary             string   `json:"summary"`
-	VerifyKey           string   `json:"verify_key"`
-	Team                *Team    `json:"team"`
-	GuildID             string   `json:"guild_id"`
-	PrimarySKUID        string   `json:"primary_sku_id"`
-	Slug                string   `json:"slug"`
-	CoverImage          string   `json:"cover_image"`
-	Flags               int      `json:"flags,omitempty"`
+	ID                     string                                                           `json:"id,omitempty"`
+	Name                   string                                                           `json:"name"`
+	Icon                   string                                                           `json:"icon,omitempty"`
+	Description            string                                                           `json:"description,omitempty"`
+	RPCOrigins             []string                                                         `json:"rpc_origins,omitempty"`
+	BotPublic              bool                                                             `json:"bot_public,omitempty"`
+	BotRequireCodeGrant    bool                                                             `json:"bot_require_code_grant,omitempty"`
+	TermsOfServiceURL      string                                                           `json:"terms_of_service_url"`
+	PrivacyProxyURL        string                                                           `json:"privacy_policy_url"`
+	Owner                  *User                                                            `json:"owner"`
+	Summary                string                                                           `json:"summary"`
+	VerifyKey              string                                                           `json:"verify_key"`
+	Team                   *Team                                                            `json:"team"`
+	GuildID                string                                                           `json:"guild_id"`
+	PrimarySKUID           string                                                           `json:"primary_sku_id"`
+	Slug                   string                                                           `json:"slug"`
+	CoverImage             string                                                           `json:"cover_image"`
+	Flags                  int                                                              `json:"flags,omitempty"`
+	IntegrationTypesConfig map[ApplicationIntegrationType]*ApplicationIntegrationTypeConfig `json:"integration_types,omitempty"`
 }
 
 // ApplicationRoleConnectionMetadataType represents the type of application role connection metadata.
@@ -288,7 +311,9 @@ const (
 	ChannelTypeGuildPublicThread  ChannelType = 11
 	ChannelTypeGuildPrivateThread ChannelType = 12
 	ChannelTypeGuildStageVoice    ChannelType = 13
+	ChannelTypeGuildDirectory     ChannelType = 14
 	ChannelTypeGuildForum         ChannelType = 15
+	ChannelTypeGuildMedia         ChannelType = 16
 )
 
 // ChannelFlags represent flags of a channel/thread.
@@ -654,6 +679,13 @@ type Sticker struct {
 	GuildID     string        `json:"guild_id"`
 	User        *User         `json:"user"`
 	SortValue   int           `json:"sort_value"`
+}
+
+// StickerItem represents the smallest amount of data required to render a sticker. A partial sticker object.
+type StickerItem struct {
+	ID         string        `json:"id"`
+	Name       string        `json:"name"`
+	FormatType StickerFormat `json:"format_type"`
 }
 
 // StickerPack represents a pack of standard stickers.
@@ -1267,6 +1299,14 @@ type UserGuild struct {
 	Owner       bool           `json:"owner"`
 	Permissions int64          `json:"permissions,string"`
 	Features    []GuildFeature `json:"features"`
+
+	// Approximate number of members in this guild.
+	// NOTE: this field is only filled when withCounts is true.
+	ApproximateMemberCount int `json:"approximate_member_count"`
+
+	// Approximate number of non-offline members in this guild.
+	// NOTE: this field is only filled when withCounts is true.
+	ApproximatePresenceCount int `json:"approximate_presence_count"`
 }
 
 // GuildFeature indicates the presence of a feature in a guild
@@ -1355,7 +1395,22 @@ type Role struct {
 
 	// The emoji assigned to this role.
 	UnicodeEmoji string `json:"unicode_emoji"`
+
+	// The flags of the role, which describe its extra features.
+	// This is a combination of bit masks; the presence of a certain flag can
+	// be checked by performing a bitwise AND between this int and the flag.
+	Flags RoleFlags `json:"flags"`
 }
+
+// RoleFlags represent the flags of a Role.
+// https://discord.com/developers/docs/topics/permissions#role-object-role-flags
+type RoleFlags int
+
+// Block containing known RoleFlags values.
+const (
+	// RoleFlagInPrompt indicates whether the Role is selectable by members in an onboarding prompt.
+	RoleFlagInPrompt RoleFlags = 1 << 0
+)
 
 // Mention returns a string which mentions the role
 func (r *Role) Mention() string {
@@ -1446,6 +1501,22 @@ type Assets struct {
 	SmallText    string `json:"small_text,omitempty"`
 }
 
+// MemberFlags represent flags of a guild member.
+// https://discord.com/developers/docs/resources/guild#guild-member-object-guild-member-flags
+type MemberFlags int
+
+// Block containing known MemberFlags values.
+const (
+	// MemberFlagDidRejoin indicates whether the Member has left and rejoined the guild.
+	MemberFlagDidRejoin MemberFlags = 1 << 0
+	// MemberFlagCompletedOnboarding indicates whether the Member has completed onboarding.
+	MemberFlagCompletedOnboarding MemberFlags = 1 << 1
+	// MemberFlagBypassesVerification indicates whether the Member is exempt from guild verification requirements.
+	MemberFlagBypassesVerification MemberFlags = 1 << 2
+	// MemberFlagStartedOnboarding indicates whether the Member has started onboarding.
+	MemberFlagStartedOnboarding MemberFlags = 1 << 3
+)
+
 // A Member stores user information for Guild members. A guild
 // member represents a certain user's presence in a guild.
 type Member struct {
@@ -1475,6 +1546,10 @@ type Member struct {
 
 	// When the user used their Nitro boost on the server
 	PremiumSince *time.Time `json:"premium_since"`
+
+	// The flags of this member. This is a combination of bit masks; the presence of a certain
+	// flag can be checked by performing a bitwise AND between this int and the flag.
+	Flags MemberFlags `json:"flags"`
 
 	// Is true while the member hasn't accepted the membership screen.
 	Pending bool `json:"pending"`
@@ -1670,6 +1745,10 @@ type AutoModerationActionMetadata struct {
 	// Timeout duration in seconds (maximum of 2419200 - 4 weeks).
 	// NOTE: should be only used with timeout action type.
 	Duration int `json:"duration_seconds,omitempty"`
+
+	// Additional explanation that will be shown to members whenever their message is blocked (maximum of 150 characters).
+	// NOTE: should be only used with block message action type.
+	CustomMessage string `json:"custom_message,omitempty"`
 }
 
 // AutoModerationAction stores data for an auto moderation action.
@@ -1966,6 +2045,15 @@ const (
 
 	AuditLogActionCreatorMonetizationRequestCreated AuditLogAction = 150
 	AuditLogActionCreatorMonetizationTermsAccepted  AuditLogAction = 151
+
+	AuditLogActionOnboardingPromptCreate AuditLogAction = 163
+	AuditLogActionOnboardingPromptUpdate AuditLogAction = 164
+	AuditLogActionOnboardingPromptDelete AuditLogAction = 165
+	AuditLogActionOnboardingCreate       AuditLogAction = 166
+	AuditLogActionOnboardingUpdate       AuditLogAction = 167
+
+	AuditLogActionHomeSettingsCreate = 190
+	AuditLogActionHomeSettingsUpdate = 191
 )
 
 // GuildMemberParams stores data needed to update a member
@@ -2104,7 +2192,7 @@ func (activity *Activity) UnmarshalJSON(b []byte) error {
 		Type          ActivityType `json:"type"`
 		URL           string       `json:"url,omitempty"`
 		CreatedAt     int64        `json:"created_at"`
-		ApplicationID string       `json:"application_id,omitempty"`
+		ApplicationID json.Number  `json:"application_id,omitempty"`
 		State         string       `json:"state,omitempty"`
 		Details       string       `json:"details,omitempty"`
 		Timestamps    TimeStamps   `json:"timestamps,omitempty"`
@@ -2119,8 +2207,8 @@ func (activity *Activity) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
+	activity.ApplicationID = temp.ApplicationID.String()
 	activity.CreatedAt = time.Unix(0, temp.CreatedAt*1000000)
-	activity.ApplicationID = temp.ApplicationID
 	activity.Assets = temp.Assets
 	activity.Details = temp.Details
 	activity.Emoji = temp.Emoji
@@ -2230,6 +2318,57 @@ const (
 	StageInstancePrivacyLevelGuildOnly StageInstancePrivacyLevel = 2
 )
 
+// PollLayoutType represents the layout of a poll.
+type PollLayoutType int
+
+// Valid PollLayoutType values.
+const (
+	PollLayoutTypeDefault PollLayoutType = 1
+)
+
+// PollMedia contains common data used by question and answers.
+type PollMedia struct {
+	Text  string          `json:"text,omitempty"`
+	Emoji *ComponentEmoji `json:"emoji,omitempty"` // TODO: rename the type
+}
+
+// PollAnswer represents a single answer in a poll.
+type PollAnswer struct {
+	// NOTE: should not be set on creation.
+	AnswerID int        `json:"answer_id,omitempty"`
+	Media    *PollMedia `json:"poll_media"`
+}
+
+// PollAnswerCount stores counted poll votes for a single answer.
+type PollAnswerCount struct {
+	ID      int  `json:"id"`
+	Count   int  `json:"count"`
+	MeVoted bool `json:"me_voted"`
+}
+
+// PollResults contains voting results on a poll.
+type PollResults struct {
+	Finalized    bool               `json:"is_finalized"`
+	AnswerCounts []*PollAnswerCount `json:"answer_count"`
+}
+
+// Poll contains all poll related data.
+type Poll struct {
+	Question         PollMedia      `json:"question"`
+	Answers          []PollAnswer   `json:"answers"`
+	AllowMultiselect bool           `json:"allow_multiselect"`
+	LayoutType       PollLayoutType `json:"layout_type,omitempty"`
+
+	// NOTE: should be set only on creation, when fetching use Expiry.
+	Duration int `json:"duration,omitempty"`
+
+	// NOTE: available only when fetching.
+
+	Results *PollResults `json:"results,omitempty"`
+	// NOTE: as Discord documentation notes, this field might be null even when fetching.
+	Expiry *time.Time `json:"expiry,omitempty"`
+}
+
 // Constants for the different bit offsets of text channel permissions
 const (
 	// Deprecated: PermissionReadMessages has been replaced with PermissionViewChannel for text and voice channels
@@ -2282,6 +2421,12 @@ const (
 
 	// Allows sending voice messages.
 	PermissionSendVoiceMessages = 1 << 46
+
+	// Allows sending polls.
+	PermissionSendPolls = 1 << 49
+
+	// Allows user-installed apps to send public responses. When disabled, users will still be allowed to use their apps but the responses will be ephemeral. This only applies to apps not also installed to the server.
+	PermissionUseExternalApps = 1 << 50
 )
 
 // Constants for the different bit offsets of voice permissions
@@ -2376,8 +2521,11 @@ const (
 	// Allows management and editing of channels.
 	PermissionManageChannels = 1 << 4
 
-	// Allows management and editing of the guil.
+	// Deprecated: PermissionManageServer has been replaced by PermissionManageGuild.
 	PermissionManageServer = 1 << 5
+
+	// Allows management and editing of the guild.
+	PermissionManageGuild = 1 << 5
 
 	// Allows for the addition of reactions to messages.
 	PermissionAddReactions = 1 << 6
