@@ -1908,7 +1908,7 @@ func (s *Session) ChannelMessageEditComplex(m *MessageEdit, options ...RequestOp
 	// TODO: Remove this when compatibility is not required.
 	if m.Embed != nil {
 		if m.Embeds == nil {
-			m.Embeds = &[]*MessageEmbed{m.Embed}
+			m.Embeds = []*MessageEmbed{m.Embed}
 		} else {
 			err = fmt.Errorf("cannot specify both Embed and Embeds")
 			return
@@ -1916,7 +1916,7 @@ func (s *Session) ChannelMessageEditComplex(m *MessageEdit, options ...RequestOp
 	}
 
 	if m.Embeds != nil {
-		for _, embed := range *m.Embeds {
+		for _, embed := range m.Embeds {
 			if embed.Type == "" {
 				embed.Type = "rich"
 			}
